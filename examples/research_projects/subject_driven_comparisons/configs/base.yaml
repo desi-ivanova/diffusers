@@ -2,29 +2,19 @@ pretrained_model_name_or_path: runwayml/stable-diffusion-v1-5
 # "Revision of pretrained model identifier from huggingface.co/models.
 revision:
 
+# A seed for reproducible training.
+seed:
+
 defaults:
   - _self_
   - optim: adamw
+  - dataset: pokemon
 
 training_loop:
   # Initial learning rate (after the potential warmup period) to use.
   learning_rate: 1e-4
 
-# The name of the Dataset (from the FF hub) to train on (could be your own private,
-# dataset). It can also be a path pointing to a local copy of a dataset in your
-# filesystem, or to a folder containing files that HF datasets can understand.
-dataset_name: lambdalabs/pokemon-blip-captions
-# The config of the Dataset, leave as None if there's only one config
-dataset_config_name:
-# A folder containing the training data. Folder contents must follow the structure
-# described in https://huggingface.co/docs/datasets/image_dataset#imagefolder. In
-# particular, a `metadata.jsonl` file" must exist to provide the captions for the
-# images. Ignored if `dataset_name` is specified."
-train_data_dir:
-# The column of the dataset containing an image.
-image_column: image
-# The column of the dataset containing a caption or a list of captions.
-caption_column: text
+
 # A prompt that is sampled during training for inference.
 validation_prompt:
 # Number of images that should be generated during validation with `validation_prompt`.
@@ -38,8 +28,7 @@ max_train_samples:
 output_dir: sd-model-finetuned-lora
 # The directory where the downloaded models and datasets will be stored.
 cache_dir:
-# A seed for reproducible training.
-seed:
+
 # The resolution for input images, all the images in the train/validation dataset will be resized to this resolution
 resolution: 512
 # Whether to center crop the input images to the resolution. If not set, the images

@@ -91,7 +91,7 @@ def main(args: DictConfig):
     if env_local_rank != -1 and env_local_rank != args.local_rank:
         args.local_rank = env_local_rank
 
-    if args.dataset_name is None and args.train_data_dir is None:
+    if args.dataset.name is None and args.train_data_dir is None:
         raise ValueError("Need either a dataset name or a training folder.")
 
     logging_dir = Path(args.output_dir, args.logging_dir)
@@ -131,7 +131,7 @@ def main(args: DictConfig):
         diffusers.utils.logging.set_verbosity_error()
 
     # If passed along, set the training seed now.
-    if args.seed is not None:
+    if args.get("seed"):
         set_seed(args.seed)
 
     # Handle the repository creation
@@ -288,16 +288,16 @@ def main(args: DictConfig):
 
     # In distributed training, the load_dataset function guarantees that only one local process can concurrently
     # download the dataset.
-    if args.dataset_name is not None:
+    if args.dataset.name is not None:
         # Downloading and loading a dataset from the hub.
         dataset = load_dataset(
-            args.dataset_name,
-            args.dataset_config_name,
+            args.dataset.name,
+            args.dataset.config_name,
             cache_dir=args.cache_dir,
         )
     else:
         data_files = {}
-        if args.train_data_dir is not None:
+        if args.dataset.train_data_dir is not None:
             data_files["train"] = os.path.join(args.train_data_dir, "**")
         dataset = load_dataset(
             "imagefolder",
@@ -307,8 +307,8 @@ def main(args: DictConfig):
         # See more about loading custom images at
         # https://huggingface.co/docs/datasets/v2.4.0/en/image_load#imagefolder
 
-    caption_column = args.caption_column
-    image_column = args.image_column
+    caption_column = args.dataset.caption_column
+    image_column = args.dataset.image_column
 
     # Preprocessing the datasets.
     # We need to tokenize input captions and transform the images.
@@ -666,7 +666,7 @@ def main(args: DictConfig):
                 repo_id,
                 images=images,
                 base_model=args.pretrained_model_name_or_path,
-                dataset_name=args.dataset_name,
+                dataset_name=args.dataset.name,
                 repo_folder=args.output_dir,
             )
             upload_folder(
