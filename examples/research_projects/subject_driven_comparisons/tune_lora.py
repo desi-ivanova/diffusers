@@ -98,6 +98,7 @@ def main(args: DictConfig):
 
     logging_dir = Path(args.output_dir, args.logging_dir)
 
+    # TODO: docs
     accelerator = hydra.utils.instantiate(args.accelerator)
     # if args.report_to == "wandb":
     #     if not is_wandb_available():
@@ -157,19 +158,19 @@ def main(args: DictConfig):
     unet = UNet2DConditionModel.from_pretrained(
         args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision
     )
-    # freeze parameters of models to save more memory
+    # freeze parameters of models
     unet.requires_grad_(False)
     vae.requires_grad_(False)
-
     text_encoder.requires_grad_(False)
 
-    # For mixed precision training we cast the text_encoder and vae weights to half-precision
-    # as these models are only used for inference, keeping weights in full precision is not required.
-    weight_dtype = torch.float32
+    # For mixed precision training -- use half-precision for text_encoder and vae --
+    # these models are only used for inference, full precision wegihts are not needed
     if accelerator.mixed_precision == "fp16":
         weight_dtype = torch.float16
     elif accelerator.mixed_precision == "bf16":
         weight_dtype = torch.bfloat16
+    else:
+        weight_dtype = torch.float32
 
     # Move unet, vae and text_encoder to device and cast to weight_dtype
     unet.to(accelerator.device, dtype=weight_dtype)
@@ -275,8 +276,8 @@ def main(args: DictConfig):
         params=lora_layers.parameters(),
     )
 
-    # Get the datasets: you can either provide your own training and evaluation files (see below)
-    # or specify a Dataset from the hub (the dataset will be downloaded automatically from the datasets Hub).
+    # Get the datasets: can provide your own training/evaluation files (see below)
+    # or specify a Dataset from the hub (will be downloaded automatically).
 
     # In distributed training, the load_dataset function guarantees that only one local
     # process can concurrently download the dataset.
@@ -398,7 +399,8 @@ def main(args: DictConfig):
         lora_layers, optimizer, train_dataloader, lr_scheduler
     )
 
-    # We need to recalculate our total training steps as the size of the training dataloader may have changed.
+    # We need to recalculate our total training steps as the size of the training
+    # dataloader may have changed.
     num_update_steps_per_epoch = math.ceil(
         len(train_dataloader) / args.accelerator.gradient_accumulation_steps
     )
