@@ -81,7 +81,10 @@ def parse_args():
         ),
     )
     parser.add_argument(
-        "--image_column", type=str, default="image", help="The column of the dataset containing an image."
+        "--image_column",
+        type=str,
+        default="image",
+        help="The column of the dataset containing an image.",
     )
     parser.add_argument(
         "--caption_column",
@@ -110,7 +113,9 @@ def parse_args():
         default=None,
         help="The directory where the downloaded models and datasets will be stored.",
     )
-    parser.add_argument("--seed", type=int, default=0, help="A seed for reproducible training.")
+    parser.add_argument(
+        "--seed", type=int, default=0, help="A seed for reproducible training."
+    )
     parser.add_argument(
         "--resolution",
         type=int,
@@ -135,7 +140,10 @@ def parse_args():
         help="whether to randomly flip images horizontally",
     )
     parser.add_argument(
-        "--train_batch_size", type=int, default=16, help="Batch size (per device) for the training dataloader."
+        "--train_batch_size",
+        type=int,
+        default=16,
+        help="Batch size (per device) for the training dataloader.",
     )
     parser.add_argument("--num_train_epochs", type=int, default=100)
     parser.add_argument(
@@ -165,13 +173,41 @@ def parse_args():
             ' "constant", "constant_with_warmup"]'
         ),
     )
-    parser.add_argument("--adam_beta1", type=float, default=0.9, help="The beta1 parameter for the Adam optimizer.")
-    parser.add_argument("--adam_beta2", type=float, default=0.999, help="The beta2 parameter for the Adam optimizer.")
-    parser.add_argument("--adam_weight_decay", type=float, default=1e-2, help="Weight decay to use.")
-    parser.add_argument("--adam_epsilon", type=float, default=1e-08, help="Epsilon value for the Adam optimizer")
-    parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
-    parser.add_argument("--push_to_hub", action="store_true", help="Whether or not to push the model to the Hub.")
-    parser.add_argument("--hub_token", type=str, default=None, help="The token to use to push to the Model Hub.")
+    parser.add_argument(
+        "--adam_beta1",
+        type=float,
+        default=0.9,
+        help="The beta1 parameter for the Adam optimizer.",
+    )
+    parser.add_argument(
+        "--adam_beta2",
+        type=float,
+        default=0.999,
+        help="The beta2 parameter for the Adam optimizer.",
+    )
+    parser.add_argument(
+        "--adam_weight_decay", type=float, default=1e-2, help="Weight decay to use."
+    )
+    parser.add_argument(
+        "--adam_epsilon",
+        type=float,
+        default=1e-08,
+        help="Epsilon value for the Adam optimizer",
+    )
+    parser.add_argument(
+        "--max_grad_norm", default=1.0, type=float, help="Max gradient norm."
+    )
+    parser.add_argument(
+        "--push_to_hub",
+        action="store_true",
+        help="Whether or not to push the model to the Hub.",
+    )
+    parser.add_argument(
+        "--hub_token",
+        type=str,
+        default=None,
+        help="The token to use to push to the Model Hub.",
+    )
     parser.add_argument(
         "--hub_model_id",
         type=str,
@@ -207,7 +243,12 @@ def parse_args():
             "and an Nvidia Ampere GPU."
         ),
     )
-    parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
+    parser.add_argument(
+        "--local_rank",
+        type=int,
+        default=-1,
+        help="For distributed training: local_rank",
+    )
 
     args = parser.parse_args()
     env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
@@ -255,7 +296,9 @@ def main():
 
         if args.push_to_hub:
             repo_id = create_repo(
-                repo_id=args.hub_model_id or Path(args.output_dir).name, exist_ok=True, token=args.hub_token
+                repo_id=args.hub_model_id or Path(args.output_dir).name,
+                exist_ok=True,
+                token=args.hub_token,
             ).repo_id
 
     # Get the datasets: you can either provide your own training and evaluation files (see below)
@@ -289,7 +332,9 @@ def main():
     # 6. Get the column names for input/target.
     dataset_columns = dataset_name_mapping.get(args.dataset_name, None)
     if args.image_column is None:
-        image_column = dataset_columns[0] if dataset_columns is not None else column_names[0]
+        image_column = (
+            dataset_columns[0] if dataset_columns is not None else column_names[0]
+        )
     else:
         image_column = args.image_column
         if image_column not in column_names:
@@ -297,7 +342,9 @@ def main():
                 f"--image_column' value '{args.image_column}' needs to be one of: {', '.join(column_names)}"
             )
     if args.caption_column is None:
-        caption_column = dataset_columns[1] if dataset_columns is not None else column_names[1]
+        caption_column = (
+            dataset_columns[1] if dataset_columns is not None else column_names[1]
+        )
     else:
         caption_column = args.caption_column
         if caption_column not in column_names:
@@ -319,15 +366,26 @@ def main():
                 raise ValueError(
                     f"Caption column `{caption_column}` should contain either strings or lists of strings."
                 )
-        inputs = tokenizer(captions, max_length=tokenizer.model_max_length, padding="do_not_pad", truncation=True)
+        inputs = tokenizer(
+            captions,
+            max_length=tokenizer.model_max_length,
+            padding="do_not_pad",
+            truncation=True,
+        )
         input_ids = inputs.input_ids
         return input_ids
 
     train_transforms = transforms.Compose(
         [
-            transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR),
-            transforms.CenterCrop(args.resolution) if args.center_crop else transforms.RandomCrop(args.resolution),
-            transforms.RandomHorizontalFlip() if args.random_flip else transforms.Lambda(lambda x: x),
+            transforms.Resize(
+                args.resolution, interpolation=transforms.InterpolationMode.BILINEAR
+            ),
+            transforms.CenterCrop(args.resolution)
+            if args.center_crop
+            else transforms.RandomCrop(args.resolution),
+            transforms.RandomHorizontalFlip()
+            if args.random_flip
+            else transforms.Lambda(lambda x: x),
             transforms.ToTensor(),
             transforms.Normalize([0.5], [0.5]),
         ]
@@ -341,7 +399,11 @@ def main():
         return examples
 
     if args.max_train_samples is not None:
-        dataset["train"] = dataset["train"].shuffle(seed=args.seed).select(range(args.max_train_samples))
+        dataset["train"] = (
+            dataset["train"]
+            .shuffle(seed=args.seed)
+            .select(range(args.max_train_samples))
+        )
         # Set the training transforms
     train_dataset = dataset["train"].with_transform(preprocess_train)
 
@@ -351,7 +413,10 @@ def main():
         input_ids = [example["input_ids"] for example in examples]
 
         padded_tokens = tokenizer.pad(
-            {"input_ids": input_ids}, padding="max_length", max_length=tokenizer.model_max_length, return_tensors="pt"
+            {"input_ids": input_ids},
+            padding="max_length",
+            max_length=tokenizer.model_max_length,
+            return_tensors="pt",
         )
         batch = {
             "pixel_values": pixel_values,
@@ -363,7 +428,11 @@ def main():
 
     total_train_batch_size = args.train_batch_size * jax.local_device_count()
     train_dataloader = torch.utils.data.DataLoader(
-        train_dataset, shuffle=True, collate_fn=collate_fn, batch_size=total_train_batch_size, drop_last=True
+        train_dataset,
+        shuffle=True,
+        collate_fn=collate_fn,
+        batch_size=total_train_batch_size,
+        drop_last=True,
     )
 
     weight_dtype = jnp.float32
@@ -374,16 +443,27 @@ def main():
 
     # Load models and create wrapper for stable diffusion
     tokenizer = CLIPTokenizer.from_pretrained(
-        args.pretrained_model_name_or_path, revision=args.revision, subfolder="tokenizer"
+        args.pretrained_model_name_or_path,
+        revision=args.revision,
+        subfolder="tokenizer",
     )
     text_encoder = FlaxCLIPTextModel.from_pretrained(
-        args.pretrained_model_name_or_path, revision=args.revision, subfolder="text_encoder", dtype=weight_dtype
+        args.pretrained_model_name_or_path,
+        revision=args.revision,
+        subfolder="text_encoder",
+        dtype=weight_dtype,
     )
     vae, vae_params = FlaxAutoencoderKL.from_pretrained(
-        args.pretrained_model_name_or_path, revision=args.revision, subfolder="vae", dtype=weight_dtype
+        args.pretrained_model_name_or_path,
+        revision=args.revision,
+        subfolder="vae",
+        dtype=weight_dtype,
     )
     unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(
-        args.pretrained_model_name_or_path, revision=args.revision, subfolder="unet", dtype=weight_dtype
+        args.pretrained_model_name_or_path,
+        revision=args.revision,
+        subfolder="unet",
+        dtype=weight_dtype,
     )
 
     # Optimization
@@ -405,10 +485,15 @@ def main():
         adamw,
     )
 
-    state = train_state.TrainState.create(apply_fn=unet.__call__, params=unet_params, tx=optimizer)
+    state = train_state.TrainState.create(
+        apply_fn=unet.__call__, params=unet_params, tx=optimizer
+    )
 
     noise_scheduler = FlaxDDPMScheduler(
-        beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000
+        beta_start=0.00085,
+        beta_end=0.012,
+        beta_schedule="scaled_linear",
+        num_train_timesteps=1000,
     )
     noise_scheduler_state = noise_scheduler.create_state()
 
@@ -422,7 +507,10 @@ def main():
         def compute_loss(params):
             # Convert images to latent space
             vae_outputs = vae.apply(
-                {"params": vae_params}, batch["pixel_values"], deterministic=True, method=vae.encode
+                {"params": vae_params},
+                batch["pixel_values"],
+                deterministic=True,
+                method=vae.encode,
             )
             latents = vae_outputs.latent_dist.sample(sample_rng)
             # (NHWC) -> (NCHW)
@@ -443,7 +531,9 @@ def main():
 
             # Add noise to the latents according to the noise magnitude at each timestep
             # (this is the forward diffusion process)
-            noisy_latents = noise_scheduler.add_noise(noise_scheduler_state, latents, noise, timesteps)
+            noisy_latents = noise_scheduler.add_noise(
+                noise_scheduler_state, latents, noise, timesteps
+            )
 
             # Get the text embedding for conditioning
             encoder_hidden_states = text_encoder(
@@ -454,16 +544,24 @@ def main():
 
             # Predict the noise residual and compute loss
             model_pred = unet.apply(
-                {"params": params}, noisy_latents, timesteps, encoder_hidden_states, train=True
+                {"params": params},
+                noisy_latents,
+                timesteps,
+                encoder_hidden_states,
+                train=True,
             ).sample
 
             # Get the target for loss depending on the prediction type
             if noise_scheduler.config.prediction_type == "epsilon":
                 target = noise
             elif noise_scheduler.config.prediction_type == "v_prediction":
-                target = noise_scheduler.get_velocity(noise_scheduler_state, latents, noise, timesteps)
+                target = noise_scheduler.get_velocity(
+                    noise_scheduler_state, latents, noise, timesteps
+                )
             else:
-                raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
+                raise ValueError(
+                    f"Unknown prediction type {noise_scheduler.config.prediction_type}"
+                )
 
             loss = (target - model_pred) ** 2
             loss = loss.mean()
@@ -502,7 +600,9 @@ def main():
     logger.info(f"  Num examples = {len(train_dataset)}")
     logger.info(f"  Num Epochs = {args.num_train_epochs}")
     logger.info(f"  Instantaneous batch size per device = {args.train_batch_size}")
-    logger.info(f"  Total train batch size (w. parallel & distributed) = {total_train_batch_size}")
+    logger.info(
+        f"  Total train batch size (w. parallel & distributed) = {total_train_batch_size}"
+    )
     logger.info(f"  Total optimization steps = {args.max_train_steps}")
 
     global_step = 0
@@ -514,11 +614,15 @@ def main():
         train_metrics = []
 
         steps_per_epoch = len(train_dataset) // total_train_batch_size
-        train_step_progress_bar = tqdm(total=steps_per_epoch, desc="Training...", position=1, leave=False)
+        train_step_progress_bar = tqdm(
+            total=steps_per_epoch, desc="Training...", position=1, leave=False
+        )
         # train
         for batch in train_dataloader:
             batch = shard(batch)
-            state, train_metric, train_rngs = p_train_step(state, text_encoder_params, vae_params, batch, train_rngs)
+            state, train_metric, train_rngs = p_train_step(
+                state, text_encoder_params, vae_params, batch, train_rngs
+            )
             train_metrics.append(train_metric)
 
             train_step_progress_bar.update(1)
@@ -530,12 +634,17 @@ def main():
         train_metric = jax_utils.unreplicate(train_metric)
 
         train_step_progress_bar.close()
-        epochs.write(f"Epoch... ({epoch + 1}/{args.num_train_epochs} | Loss: {train_metric['loss']})")
+        epochs.write(
+            f"Epoch... ({epoch + 1}/{args.num_train_epochs} | Loss: {train_metric['loss']})"
+        )
 
     # Create the pipeline using using the trained modules and save it.
     if jax.process_index() == 0:
         scheduler = FlaxPNDMScheduler(
-            beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", skip_prk_steps=True
+            beta_start=0.00085,
+            beta_end=0.012,
+            beta_schedule="scaled_linear",
+            skip_prk_steps=True,
         )
         safety_checker = FlaxStableDiffusionSafetyChecker.from_pretrained(
             "CompVis/stable-diffusion-safety-checker", from_pt=True
@@ -547,7 +656,9 @@ def main():
             tokenizer=tokenizer,
             scheduler=scheduler,
             safety_checker=safety_checker,
-            feature_extractor=CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32"),
+            feature_extractor=CLIPImageProcessor.from_pretrained(
+                "openai/clip-vit-base-patch32"
+            ),
         )
 
         pipeline.save_pretrained(
