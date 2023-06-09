@@ -1,5 +1,14 @@
 pretrained_model_name_or_path: runwayml/stable-diffusion-v1-5
-revision: # "Revision of pretrained model identifier from huggingface.co/models.
+# "Revision of pretrained model identifier from huggingface.co/models.
+revision:
+
+defaults:
+  - _self_
+  - optim: adamw
+
+training_loop:
+  # Initial learning rate (after the potential warmup period) to use.
+  learning_rate: 1e-4
 
 # The name of the Dataset (from the FF hub) to train on (could be your own private,
 # dataset). It can also be a path pointing to a local copy of a dataset in your
@@ -49,9 +58,8 @@ max_train_steps:
 gradient_accumulation_steps: 1
 # Whether or not to use gradient checkpointing to save memory at the expense of slower backward pass.
 gradient_checkpointing: False
-# Initial learning rate (after the potential warmup period) to use.
-learning_rate: 1e-4
-# Scale the learning rate by the number of GPUs, gradient accumulation steps, and batch size.
+
+# Scale learning rate by number of GPUs, gradient accumulation steps, and batch size.
 scale_lr: False
 # The scheduler type to use. Choose between ["linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"]
 lr_scheduler: constant
@@ -69,14 +77,7 @@ allow_tf32: False
 # Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
 dataloader_num_workers: 0
 
-# The beta1 parameter for the Adam optimizer. # TODO this goes in the optimizer config
-adam_beta1: 0.9
-# The beta2 parameter for the Adam optimizer. # TODO this goes in the optimizer config
-adam_beta2: 0.999
-# Weight decay to use. # TODO this goes in the optimizer config
-adam_weight_decay: 1e-2
-# Epsilon value for the Adam optimizer. # TODO this goes in the optimizer config
-adam_epsilon: 1e-08
+
 # Max gradient norm.
 max_grad_norm: 1.0
 # Whether or not to push the model to the Hub.

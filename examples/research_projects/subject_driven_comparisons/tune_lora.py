@@ -270,33 +270,17 @@ def main(args: DictConfig):
     if args.allow_tf32:
         torch.backends.cuda.matmul.allow_tf32 = True
 
-    if args.scale_lr:
+    if args.scale_lr:  # TODO Look into this situation, probably do in config
         args.learning_rate = (
             args.learning_rate
             * args.gradient_accumulation_steps
             * args.train_batch_size
             * accelerator.num_processes
         )
-
-    # Initialize the optimizer
-    if args.use_8bit_adam:
-        try:
-            import bitsandbytes as bnb
-        except ImportError:
-            raise ImportError(
-                "Please install bitsandbytes to use 8-bit Adam. You can do so by running `pip install bitsandbytes`"
-            )
-
-        optimizer_cls = bnb.optim.AdamW8bit
-    else:
-        optimizer_cls = torch.optim.AdamW
-
-    optimizer = optimizer_cls(
-        lora_layers.parameters(),
-        lr=args.learning_rate,
-        betas=(args.adam_beta1, args.adam_beta2),
-        weight_decay=args.adam_weight_decay,
-        eps=args.adam_epsilon,
+    # setup the optimizer
+    optimizer = hydra.utils.instantiate(
+        args.optim,
+        params=lora_layers.parameters(),
     )
 
     # Get the datasets: you can either provide your own training and evaluation files (see below)

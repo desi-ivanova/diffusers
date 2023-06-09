@@ -1,0 +1,7 @@
+_target_: torch.optim.AdamW
+lr: ${training_loop.learning_rate}
+betas:
+  - 0.9
+  - 0.999
+weight_decay: 1e-2
+eps: 1e-08
