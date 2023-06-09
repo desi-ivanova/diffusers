@@ -15,6 +15,8 @@ import torch
 import torch.nn.functional as F
 import torch.utils.checkpoint
 
+import wandb
+
 import hydra
 from omegaconf import DictConfig
 
@@ -56,7 +58,7 @@ def save_model_card(
     base_model: str,
     dataset_name: str,
     repo_folder: str,
-):
+) -> None:
     img_str = ""
     for i, image in enumerate(images):
         image.save(os.path.join(repo_folder, f"image_{i}.png"))
@@ -96,23 +98,13 @@ def main(args: DictConfig):
 
     logging_dir = Path(args.output_dir, args.logging_dir)
 
-    accelerator_project_config = ProjectConfiguration(
-        total_limit=args.checkpoints_total_limit
-    )
-
-    accelerator = Accelerator(
-        gradient_accumulation_steps=args.gradient_accumulation_steps,
-        mixed_precision=args.mixed_precision,
-        log_with=args.report_to,
-        # logging_dir=logging_dir,
-        project_config=accelerator_project_config,
-    )
-    if args.report_to == "wandb":
-        if not is_wandb_available():
-            raise ImportError(
-                "Make sure to install wandb if you want to use it for logging during training."
-            )
-        import wandb
+    accelerator = hydra.utils.instantiate(args.accelerator)
+    # if args.report_to == "wandb":
+    #     if not is_wandb_available():
+    #         raise ImportError(
+    #             "Make sure to install wandb if you want to use it for logging during training."
+    #         )
+    #     import wandb
 
     # Make one log on every process with the configuration for debugging.
     logging.basicConfig(
@@ -271,10 +263,10 @@ def main(args: DictConfig):
         torch.backends.cuda.matmul.allow_tf32 = True
 
     if args.scale_lr:  # TODO Look into this situation, probably do in config
-        args.learning_rate = (
-            args.learning_rate
-            * args.gradient_accumulation_steps
-            * args.train_batch_size
+        args.training_loop.learning_rate = (
+            args.training_loop.learning_rate
+            * args.accelerator.gradient_accumulation_steps
+            * args.training_loop.train_batch_size
             * accelerator.num_processes
         )
     # setup the optimizer
@@ -286,8 +278,8 @@ def main(args: DictConfig):
     # Get the datasets: you can either provide your own training and evaluation files (see below)
     # or specify a Dataset from the hub (the dataset will be downloaded automatically from the datasets Hub).
 
-    # In distributed training, the load_dataset function guarantees that only one local process can concurrently
-    # download the dataset.
+    # In distributed training, the load_dataset function guarantees that only one local
+    # process can concurrently download the dataset.
     if args.dataset.name is not None:
         # Downloading and loading a dataset from the hub.
         dataset = load_dataset(
@@ -377,24 +369,28 @@ def main(args: DictConfig):
         train_dataset,
         shuffle=True,
         collate_fn=collate_fn,
-        batch_size=args.train_batch_size,
+        batch_size=args.training_loop.train_batch_size,
         num_workers=args.dataloader_num_workers,
     )
 
     # Scheduler and math around the number of training steps.
     overrode_max_train_steps = False
     num_update_steps_per_epoch = math.ceil(
-        len(train_dataloader) / args.gradient_accumulation_steps
+        len(train_dataloader) / args.accelerator.gradient_accumulation_steps
     )
-    if args.max_train_steps is None:
-        args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
+    if args.training_loop.max_train_steps is None:
+        args.training_loop.max_train_steps = (
+            args.training_loop.num_train_epochs * num_update_steps_per_epoch
+        )
         overrode_max_train_steps = True
 
     lr_scheduler = get_scheduler(
         args.lr_scheduler,
         optimizer=optimizer,
-        num_warmup_steps=args.lr_warmup_steps * args.gradient_accumulation_steps,
-        num_training_steps=args.max_train_steps * args.gradient_accumulation_steps,
+        num_warmup_steps=args.lr_warmup_steps
+        * args.accelerator.gradient_accumulation_steps,
+        num_training_steps=args.training_loop.max_train_steps
+        * args.accelerator.gradient_accumulation_steps,
     )
 
     # Prepare everything with our `accelerator`.
@@ -404,12 +400,16 @@ def main(args: DictConfig):
 
     # We need to recalculate our total training steps as the size of the training dataloader may have changed.
     num_update_steps_per_epoch = math.ceil(
-        len(train_dataloader) / args.gradient_accumulation_steps
+        len(train_dataloader) / args.accelerator.gradient_accumulation_steps
     )
     if overrode_max_train_steps:
-        args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
+        args.training_loop.max_train_steps = (
+            args.training_loop.num_train_epochs * num_update_steps_per_epoch
+        )
     # Afterwards we recalculate our number of training epochs
-    args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
+    args.training_loop.num_train_epochs = math.ceil(
+        args.training_loop.max_train_steps / num_update_steps_per_epoch
+    )
 
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
@@ -418,20 +418,24 @@ def main(args: DictConfig):
 
     # Train!
     total_batch_size = (
-        args.train_batch_size
+        args.training_loop.train_batch_size
         * accelerator.num_processes
-        * args.gradient_accumulation_steps
+        * args.accelerator.gradient_accumulation_steps
     )
 
     logger.info("***** Running training *****")
     logger.info(f"  Num examples = {len(train_dataset)}")
-    logger.info(f"  Num Epochs = {args.num_train_epochs}")
-    logger.info(f"  Instantaneous batch size per device = {args.train_batch_size}")
+    logger.info(f"  Num Epochs = {args.training_loop.num_train_epochs}")
+    logger.info(
+        f"  Instantaneous batch size per device = {args.training_loop.train_batch_size}"
+    )
     logger.info(
         f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}"
     )
-    logger.info(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
-    logger.info(f"  Total optimization steps = {args.max_train_steps}")
+    logger.info(
+        f"  Gradient Accumulation steps = {args.accelerator.gradient_accumulation_steps}"
+    )
+    logger.info(f"  Total optimization steps = {args.training_loop.max_train_steps}")
     global_step = 0
     first_epoch = 0
 
@@ -456,20 +460,23 @@ def main(args: DictConfig):
             accelerator.load_state(os.path.join(args.output_dir, path))
             global_step = int(path.split("-")[1])
 
-            resume_global_step = global_step * args.gradient_accumulation_steps
+            resume_global_step = (
+                global_step * args.accelerator.gradient_accumulation_steps
+            )
             first_epoch = global_step // num_update_steps_per_epoch
             resume_step = resume_global_step % (
-                num_update_steps_per_epoch * args.gradient_accumulation_steps
+                num_update_steps_per_epoch
+                * args.accelerator.gradient_accumulation_steps
             )
 
     # Only show the progress bar once on each machine.
     progress_bar = tqdm(
-        range(global_step, args.max_train_steps),
+        range(global_step, args.training_loop.max_train_steps),
         disable=not accelerator.is_local_main_process,
     )
     progress_bar.set_description("Steps")
 
-    for epoch in range(first_epoch, args.num_train_epochs):
+    for epoch in range(first_epoch, args.training_loop.num_train_epochs):
         unet.train()
         train_loss = 0.0
         for step, batch in enumerate(train_dataloader):
@@ -479,7 +486,7 @@ def main(args: DictConfig):
                 and epoch == first_epoch
                 and step < resume_step
             ):
-                if step % args.gradient_accumulation_steps == 0:
+                if step % args.accelerator.gradient_accumulation_steps == 0:
                     progress_bar.update(1)
                 continue
 
@@ -565,8 +572,12 @@ def main(args: DictConfig):
                     loss = loss.mean()
 
                 # Gather the losses across all processes for logging (if we use distributed training).
-                avg_loss = accelerator.gather(loss.repeat(args.train_batch_size)).mean()
-                train_loss += avg_loss.item() / args.gradient_accumulation_steps
+                avg_loss = accelerator.gather(
+                    loss.repeat(args.training_loop.train_batch_size)
+                ).mean()
+                train_loss += (
+                    avg_loss.item() / args.accelerator.gradient_accumulation_steps
+                )
 
                 # Backpropagate
                 accelerator.backward(loss)
@@ -598,7 +609,7 @@ def main(args: DictConfig):
             }
             progress_bar.set_postfix(**logs)
 
-            if global_step >= args.max_train_steps:
+            if global_step >= args.training_loop.max_train_steps:
                 break
 
         if accelerator.is_main_process:
